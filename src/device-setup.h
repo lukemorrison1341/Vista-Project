@@ -13,10 +13,11 @@ extern String ssid;
 extern String password;
 extern Preferences file; //store the name and wifi information 
 
-
 extern WebServer server;
 extern boolean connected;
 extern String device_name;
+extern String username;
+extern String user_password;
 
 // Function prototypes
 void setup_server();

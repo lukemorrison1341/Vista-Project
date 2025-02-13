@@ -9,6 +9,8 @@ String device_name = "UNINITIALIZED";
 String ssid = "UNINITIALIZED";
 String password = "UNINITIALIZED";
 
+String username = "UNINITIALIZED";
+String user_password = "UNINITIALIZED";
 
 // Function to handle POST requests to /wifi-setup
 void handleWifiSetup() {
@@ -85,13 +87,16 @@ void handleWifiSetup() {
     }
   
     const char * device_name_char = doc["device_name"];
+    const char * username_char = doc["username"];
+    const char * user_password_char = doc["user_password"];
 
     device_name = String(device_name_char);
+    username = String(username_char);
+    user_password = String(user_password_char);
     
-    Serial.printf("Device name: %s",device_name_char);
+    Serial.printf("Device name: %s Username: %s Password: %s",device_name_char, username_char, user_password_char);
   
     server.send(200,"application/json","{\"status\":\"success\"}");
-
 
     save_configuration();
   
@@ -162,6 +167,8 @@ void save_configuration(){ //Once done, stores key "initialized" -> true, initia
   file.putString("device_name",device_name);
   file.putString("ssid",ssid);
   file.putString("password",password);
+  file.putString("username",username);
+  file.putString("user_password",user_password);
   file.putBool("initialized",true);
   file.end();
 }
@@ -191,7 +198,7 @@ boolean check_initialization(){
 
 void print_device_config(){
   file.begin("device_config",true); 
-  Serial.printf("SSID: %s PASSSWORD: %s NAME: %s",file.getString("ssid","").c_str(),file.getString("password","").c_str(), file.getString("device_name","").c_str());
+  Serial.printf("SSID: %s  PASSSWORD: %s  NAME: %s  USERNAME: %s PASSWORD %s\n",file.getString("ssid","").c_str(),file.getString("password","").c_str(), file.getString("device_name","").c_str(),file.getString("username","").c_str(),file.getString("user_password","").c_str());
   file.end();
 }
 void setup_server(){ //create HTTP server
