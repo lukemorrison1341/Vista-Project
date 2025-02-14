@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo "Ì∫Ä Uploading frontend to vista-ucf.com..."
+scp -r ./dist/* bitnami@vista-ucf.com:~/htdocs/
+
+if [ $? -eq 0 ]; then
+    echo "‚úÖ Upload successful!"
+else
+    echo "‚ùå Upload failed!"
+fi

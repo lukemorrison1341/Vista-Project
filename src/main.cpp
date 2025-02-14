@@ -11,8 +11,8 @@ void setup() {
   Serial.println("File System initialized");
   
   if(!check_initialization()){ //uninitialized device configuration, start device configuration
-    setup_server();
-    xTaskCreate(handle_server, "Device Configuration Task", 8192, NULL, 1, NULL); 
+    setup_server(); 
+    xTaskCreate(handle_server, "Device Configuration Task", 8192, NULL, 1, NULL);
   }
   else{
     digitalWrite(LED_PIN,HIGH);
@@ -23,10 +23,12 @@ void setup() {
       digitalWrite(LED_PIN,LOW);
     }
     
-    send_device_name(); //Only really needs to happen once
-
-    xTaskCreate(send_ip, "Send IP to Backend", 8192, NULL, 1, NULL);
     
+    config_sensors();
+    xTaskCreate(send_ip, "Send IP to Backend", 16384, NULL, 1, NULL); //Sends IP to backend periodically
+    xTaskCreate(read_sensors, "Sensor Read Task", 8192, NULL, 1, NULL); //Read sensors periodically
+    create_endpoints(); //Create the endpoints for the frontend-server
+    xTaskCreate(handle_frontend_server, "Frontend Server",16384,NULL,1,NULL);
   }
 
 }

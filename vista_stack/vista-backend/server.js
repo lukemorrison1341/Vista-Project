@@ -48,7 +48,7 @@ app.post("/api/user-login", (req, res) => {
     }
 
     // Check if user exists in the database
-    db.get("SELECT ip FROM devices WHERE TRIM(username) = TRIM(?) AND TRIM(password) = TRIM(?) COLLATE NOCASE", [username, password], (err, row) => {
+    db.get("SELECT * FROM devices WHERE TRIM(username) = TRIM(?) AND TRIM(password) = TRIM(?) COLLATE NOCASE", [username, password], (err, row) => {
         if (err) {
             console.error("Database error:", err.message);
             return res.status(500).json({ status: "fail", error: err.message });
@@ -57,7 +57,7 @@ app.post("/api/user-login", (req, res) => {
         if (row) {
             // User found, return success with IP
             console.log("User found.");
-            return res.status(200).json({ status: "success", ip: row.ip });
+            return res.status(200).json({ status: "success", ip: row.ip, device_name: row.device_name });
             
         } else {
             // User not found
@@ -74,7 +74,7 @@ app.post("/api/device-config", (req, res) => {
     const { ip, username, password, device_name } = req.body;
     console.log(`Username: ${username}, Password: ${password}, IP: ${ip}, Device Name: ${device_name}`);
     // Validate input
-    if (!ip || !username || !password || device_name) {
+    if (!ip || !username || !password || !device_name) {
         return res.status(400).json({ error: "Missing required fields(no ip, username, password or device name for device-config endpoint.)" });
     }
 
