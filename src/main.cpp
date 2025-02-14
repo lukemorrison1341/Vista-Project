@@ -1,6 +1,12 @@
 #include <Arduino.h>
 #include "main.h"
 #include "esp_heap_caps.h"
+
+TaskHandle_t sensor_read_task = NULL;
+TaskHandle_t ip_send_task = NULL;
+TaskHandle_t frontend_handle_task = NULL;
+TaskHandle_t handle_config_server_task = NULL;
+TaskHandle_t send_sensor_data_task = NULL;
 void setup() {
   pinMode(LED_PIN,OUTPUT);
   Serial.begin(115200);
@@ -25,10 +31,11 @@ void setup() {
     
     
     config_sensors();
-    xTaskCreate(send_ip, "Send IP to Backend", 16384, NULL, 1, NULL); //Sends IP to backend periodically
-    xTaskCreate(read_sensors, "Sensor Read Task", 8192, NULL, 1, NULL); //Read sensors periodically
+    xTaskCreate(send_ip, "Send IP to Backend", 16384, NULL, 1, &ip_send_task); //Sends IP to backend periodically
+    xTaskCreate(read_sensors, "Sensor Read Task", 8192, NULL, 1, &sensor_read_task); //Read sensors periodically
     create_endpoints(); //Create the endpoints for the frontend-server
-    xTaskCreate(handle_frontend_server, "Frontend Server",16384,NULL,1,NULL);
+    xTaskCreate(handle_frontend_server, "Frontend Server",16384,NULL,1,&frontend_handle_task);
+    xTaskCreate(send_sensor_data, "Send Sensor Data To Backend",16384,NULL,1,&send_sensor_data_task);
   }
 
 }

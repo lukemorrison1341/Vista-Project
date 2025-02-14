@@ -12,10 +12,11 @@ void handlePIRRequest() {
 
     if(server.method() == HTTP_OPTIONS) //Handle CORS Policy
     {
+        Serial.println("Handling CORS preflight request...");
         server.sendHeader("Access-Control-Allow-Origin", "*");
-        server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
         server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
-        server.send(204);  // ✅ 204 No Content (Successful preflight)
+        server.send(204);  // ✅ 204 No Content oreflight
         return;
     }
 
@@ -23,7 +24,7 @@ void handlePIRRequest() {
         server.send(405, "text/plain", "Method Not Allowed");
         return;
       }
-    Serial.printf("Received PIR GET Request");
+    Serial.printf("Received PIR GET Request\n");
 
     StaticJsonDocument<256> jsonResponse;
     jsonResponse["pir"] = get_pir(); 
@@ -31,10 +32,11 @@ void handlePIRRequest() {
     String jsonPayload;
     serializeJson(jsonResponse, jsonPayload);
 
-    server.sendHeader("Access-Control-Allow-Origin", "*");  //Allow CORS Policy
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
     server.send(200, "application/json", jsonPayload);  
 }
-
 
 
 void handle_frontend_server(void * pvParameters){

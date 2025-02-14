@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const sqlite3 = require("sqlite3").verbose();
-
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -26,7 +26,18 @@ db.serialize(() => {
         registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 });
+db.serialize(() =>{
+    db.run(`CREATE TABLE IF NOT EXISTS data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            pir INTEGER CHECK (pir IN (0,1)) DEFAULT NULL, -- NULL until updated
+            temp REAL DEFAULT NULL, -- NULL until updated
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        )`)
 
+
+});
 
 
 app.use(express.json());
@@ -37,7 +48,77 @@ app.get("/", (req, res) => {
     res.json({ message: "Enter username and password." });
 });
 
-//Recieve user login info from the frontend, responds with IP 
+app.post("/api/ip" ,(req, res) => {
+    console.log("Updating IP for frontend");
+    const username = req.body;
+        if(!username){
+            return res.status(400).json({ error: "Missing required fields (username)." });
+        }
+        db.get("SELECT * FROM devices WHERE TRIM(username) = TRIM(?) COLLATE NOCASE", [username], (err,row) => {
+            if (err) {
+                console.error("Database error:", err.message);
+                return res.status(500).json({ status: "fail", error: err.message });
+            }
+            if (row) {
+                // User found, return success with IP
+                console.log("User found (/api/ip).");
+                return res.status(200).json({ip: row.ip});
+                
+            }
+        });
+
+})
+
+app.post("/api/relay", (req, res) => { //POST to this endpoint from frontend when direct connection to ESP32 fails (Send all data)
+    const { username} = req.body;
+    if (!username) {
+        return res.status(400).json({ error: "Missing required fields (username)." });
+    }
+    
+    db.get("SELECT * FROM data WHERE TRIM(username) = TRIM(?) COLLATE NOCASE", [username], (err,row) => {
+        if (err) {
+            console.error("Database error:", err.message);
+            return res.status(500).json({ status: "fail", error: err.message });
+        }
+        if (row) {
+            // User found, return success with IP
+            console.log("User found.");
+            return res.status(200).json({pir: row.pir, temp: row.temp});
+            
+        }
+    });
+
+});
+
+
+//Backend store PIR sensor data
+app.post("/api/data/pir", (req, res) => {
+    const {username,pir} = req.body;
+    console.log("BACKEND PIR SENSOR SEND");
+    if(pir == undefined){
+        console.log("Fail: Missing required fields.");
+        return res.status(400).json({ status: "fail", error: "Missing required fields." });
+    }
+
+    db.get("SELECT * FROM data WHERE TRIM(username) = TRIM(?) COLLATE NOCASE", [username], (err,row) => {
+        if (err) {
+            console.error("Database error:", err.message);
+            return res.status(500).json({ status: "fail", error: err.message });
+        }
+        if (row) {
+            // User found, return success with IP
+            console.log("User found.");
+            row.pir = pir;
+            return res.status(200).json({status: "success"});
+            
+        }
+
+        
+
+    })
+
+});
+
 app.post("/api/user-login", (req, res) => {
     const { username, password } = req.body;
     console.log("Backend Username: " + username + "password: " + password);
@@ -94,6 +175,12 @@ app.post("/api/device-config", (req, res) => {
         } else {
             // If the username and password do not exist, insert a new entry
             db.run("INSERT INTO devices (ip, username, password, device_name) VALUES (?, ?, ?, ?)", [ip, username, password, device_name], function (err) {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+            });
+
+            db.run("INSERT INTO data (username) VALUES (?)", [username], function (err){
                 if (err) {
                     return res.status(500).json({ error: err.message });
                 }

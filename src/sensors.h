@@ -10,7 +10,7 @@
 #include <Arduino.h>
 
 extern boolean pir;
-
+extern TaskHandle_t sensor_read_task;
 void config_pir();
 void config_temp();
 void config_humid();
