@@ -26,6 +26,14 @@ db.serialize(() => {
         registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 });
+// Create table for tracking device status (device should send heartbeat every 1-2 minutes)
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS device_status (
+        username TEXT PRIMARY KEY,
+        last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+});
+
 db.serialize(() =>{
     db.run(`CREATE TABLE IF NOT EXISTS data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +55,41 @@ app.use(cors());
 app.get("/", (req, res) => {
     res.json({ message: "Enter username and password." });
 });
+
+app.post("/api/status" ,(req, res) => {
+    console.log("/api/status request body:",req.body);
+    let { username } = req.body;
+
+    if(!username){
+        console.log("Missing required fields (username) /api/status")
+        return res.status(400).json({status: "fail"});
+    }
+    // Ensure `username` is a string
+    if (typeof username !== "string") {
+        console.error("Invalid username format:", username);
+        return res.status(400).json({ error: "Invalid username format" });
+    }
+
+
+   
+
+    const now = new Date().toISOString()    ;
+    console.log("Device " + "registering itself at " + now);
+
+
+    db.run(
+        "INSERT INTO device_status (username, last_seen) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET last_seen = ?",
+        [username, now, now],
+        (err) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({last_seen: now });
+        }
+    );
+
+})
+
 
 app.post("/api/ip" ,(req, res) => {
     console.log("Updating IP for frontend");
@@ -82,7 +125,7 @@ app.post("/api/relay", (req, res) => { //POST to this endpoint from frontend whe
         }
         if (row) {
             // User found, return success with IP
-            console.log("User found.");
+            console.log("User found.(/api/relay)");
             return res.status(200).json({pir: row.pir, temp: row.temp});
             
         }
@@ -94,7 +137,6 @@ app.post("/api/relay", (req, res) => { //POST to this endpoint from frontend whe
 //Backend store PIR sensor data
 app.post("/api/data/pir", (req, res) => {
     const {username,pir} = req.body;
-    console.log("BACKEND PIR SENSOR SEND");
     if(pir == undefined){
         console.log("Fail: Missing required fields.");
         return res.status(400).json({ status: "fail", error: "Missing required fields." });
@@ -107,7 +149,7 @@ app.post("/api/data/pir", (req, res) => {
         }
         if (row) {
             // User found, return success with IP
-            console.log("User found.");
+            //console.log("User found. (/api/data/pir)");
             row.pir = pir;
             return res.status(200).json({status: "success"});
             
@@ -137,14 +179,41 @@ app.post("/api/user-login", (req, res) => {
 
         if (row) {
             // User found, return success with IP
-            console.log("User found.");
+            console.log("User found. /api/user-login");
             return res.status(200).json({ status: "success", ip: row.ip, device_name: row.device_name });
             
         } else {
             // User not found
-            console.log("Fail: User not found.");
+            console.log("Fail: User not found. /api/user-login");
             return res.status(404).json({ status: "fail", error: "User not found." });
         }
+    });
+});
+
+app.get("/api/device-status/:username", (req, res) => {
+    const { username } = req.params;
+    console.log(`Checking status for username: "${username}"`); // Debugging
+
+    db.get("SELECT last_seen FROM device_status WHERE username = ?", [username], (err, row) => {
+        if (err) {
+            console.log("Error in /api/device-status/:username:", err.message);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!row) {
+            console.log(`User "${username}" not found in /api/device-status/:username`);
+            return res.status(404).json({ status: "offline" });
+        }
+
+        console.log(`User "${username}" found. Last Seen: ${row.last_seen}`);
+
+        const lastSeenTime = new Date(row.last_seen);
+        const currentTime = new Date();
+        const timeDiff = (currentTime - lastSeenTime) / 1000; // Difference in seconds
+
+        const online = timeDiff <= 60; //If last check-in was within 2 minutes, it's online
+
+        res.json({ username, status: online ? "online" : "offline", last_seen: row.last_seen });
     });
 });
 

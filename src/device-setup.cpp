@@ -36,12 +36,12 @@ void handleWifiSetup() {
     // Extract WiFi credentials from JSON
     const char* ssid_char = doc["ssid"];
     const char* password_char = doc["password"];
-  
-    Serial.printf("WiFi Credentials - SSID: %s, Password: %s\n", ssid, password);
 
     ssid = String(ssid_char);
     password = String(password_char);
   
+    Serial.printf("WiFi Credentials - SSID: %s, Password: %s\n", ssid, password);
+
     // Respond with success
     if(test_wifi(ssid_char,password_char)){
       server.send(200, "application/json", "{\"status\": \"success\"}");

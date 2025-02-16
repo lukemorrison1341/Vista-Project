@@ -9,7 +9,7 @@ function App() {
     const [login_success, setLoginSuccess] = useState(false);
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-
+    const [deviceActive, setDeviceActive] = useState(false);
 
     const [login_attempt, setLoginAttempt] = useState(false);
     const [vista_connect, setVistaConnection] = useState(false);
@@ -20,7 +20,7 @@ function App() {
     const [displayIP, setDisplayIP] = useState(null);
 
 
-    /** Function to send request with backup fallback */
+    //Function to send request to ESP32, 
     const sendRequest = async (endpoint) => {
         if (!userIP) return;
     
@@ -38,7 +38,7 @@ function App() {
             console.log("Direct request failed, falling back to backend relay:", error);
     
             // ✅ Update the IP Display to "Backend" immediately
-            setUserIP("Backend");
+
             setBackendConnection(true);
     
             // ✅ Fetch from backend relay
@@ -68,7 +68,6 @@ function App() {
                     const data = await sendRequest("/api/sensor/pir");
                     console.log("PIR Sensor Status:", data);
                     setDetection(data.pir ? "Motion Detected" : "No Motion Detected");
-                    setVistaConnection(true);
                 } catch (error) {
                     console.error("Error fetching PIR sensor:", error);
                     setVistaConnection(false);
@@ -95,12 +94,13 @@ function App() {
     function User_Interface({ userIP }) {
 
         useEffect(() => {
+            
             if (backend_connect) {
                 setDisplayIP("Backend");
             } else {
                 setDisplayIP(userIP);
             }
-        }, [backend_connect, userIP]); // ✅ Ensure this runs when state changes
+        }, [backend_connect, userIP, vista_connect]); // ✅ Ensure this runs when state changes
 
         return (
             <div>
@@ -160,6 +160,49 @@ function App() {
 
     
     useEffect(() => {
+        if (!login_success) {
+            console.log("Login Unsuccessful");
+            return;
+        }
+        if (!username) return; // ✅ Ensure username exists before making requests
+    
+        const fetchActivity = async () => {
+            console.log("Checking device activity...");
+            try {
+                const response = await fetch(`${backendURL}/api/device-status/${username}`);
+    
+                if (!response.ok) {
+                    throw new Error("Failed to fetch device status");
+                }
+    
+                const data = await response.json();
+                console.log(`Device Status: ${data.status}, Last Seen: ${data.last_seen}`);
+    
+                // ✅ Update frontend state based on device status
+                if (data.status === "online") {
+                    setVistaConnection(true);
+                } else {
+                    setVistaConnection(false);
+                }
+            } catch (error) {
+                console.error("Error fetching device activity:", error);
+                setVistaConnection(false); // Assume offline if request fails
+            }
+        };
+    
+        // ✅ Fetch immediately when the user logs in
+        fetchActivity();
+    
+        // ✅ Set interval to fetch every 30 seconds (30 seconds)
+        const interval = setInterval(fetchActivity, 30000);
+    
+        // ✅ Cleanup function to clear interval on unmount
+        return () => clearInterval(interval);
+    }, [username, login_success]); // ✅ Runs when `username` or `login_success` changes
+        
+
+
+    useEffect(() => {
         if(!login_success) {
             console.log("Login Unsuccessful")   
             return;
@@ -201,7 +244,7 @@ function App() {
     return (
         <div>
             { !login_attempt && <div>
-            <h1>VISTA Login</h1>
+            <h1>VISTA Login 1.0</h1>
                 < form onSubmit={handleSubmit}>
                 <input type="text" placeholder="Username" onChange={(e) => setUsername(e.target.value)} />
                 <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />

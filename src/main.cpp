@@ -2,11 +2,6 @@
 #include "main.h"
 #include "esp_heap_caps.h"
 
-TaskHandle_t sensor_read_task = NULL;
-TaskHandle_t ip_send_task = NULL;
-TaskHandle_t frontend_handle_task = NULL;
-TaskHandle_t handle_config_server_task = NULL;
-TaskHandle_t send_sensor_data_task = NULL;
 void setup() {
   pinMode(LED_PIN,OUTPUT);
   Serial.begin(115200);
@@ -25,17 +20,25 @@ void setup() {
     print_device_config();
     
     if(!connect_backend()){
-      Serial.println("Failed to connect to VISTA Backend.");
-      digitalWrite(LED_PIN,LOW);
+        digitalWrite(LED_PIN,LOW);
+        if(WiFi.status() != WL_CONNECTED){
+        Serial.println("Restarting Configuration for Valid WiFi network. Reset the device.");
+        clear_configuration();
+      }
+        
     }
     
-    
-    config_sensors();
-    xTaskCreate(send_ip, "Send IP to Backend", 16384, NULL, 1, &ip_send_task); //Sends IP to backend periodically
-    xTaskCreate(read_sensors, "Sensor Read Task", 8192, NULL, 1, &sensor_read_task); //Read sensors periodically
-    create_endpoints(); //Create the endpoints for the frontend-server
-    xTaskCreate(handle_frontend_server, "Frontend Server",16384,NULL,1,&frontend_handle_task);
-    xTaskCreate(send_sensor_data, "Send Sensor Data To Backend",16384,NULL,1,&send_sensor_data_task);
+    else{ //Startup Sequences
+      config_sensors();
+      xTaskCreate(send_ip, "Send IP to Backend", 16384, NULL, 1, &ip_send_task); //Sends IP to backend periodically
+      xTaskCreate(read_sensors, "Sensor Read Task", 8192, NULL, 1, &sensor_read_task); //Read sensors periodically
+      create_endpoints(); //Create the endpoints for the frontend-server
+      xTaskCreate(handle_frontend_server, "Frontend Server",16384,NULL,1,&frontend_handle_task);
+      xTaskCreate(send_sensor_data, "Send Sensor Data To Backend",16384,NULL,1,&send_sensor_data_task);
+
+
+      xTaskCreate(send_heartbeat, "Send Heartbeat to Backend",16384,NULL,1,&heartbeat_task);
+    }
   }
 
 }

@@ -36,18 +36,28 @@ void send_ip(void * pvParameters) {
     }
 }
 
-void wifi_connect(){ //TODO: Add time-out so doesn't try to connect to WiFi endlessly
+boolean wifi_connect(){ //TODO: Add time-out so doesn't try to connect to WiFi endlessly
     file.begin("device_config",false);
     WiFi.mode(WIFI_STA);
     WiFi.begin(file.getString("ssid",""),file.getString("password",""));
     Serial.printf("Connecting to %s",file.getString("ssid",""));
-    file.end();
+    
     static uint32_t count =0; 
+    static uint16_t test_count=0;
     while(WiFi.status() != WL_CONNECTED){
-        if (count % 2048 == 0) Serial.print(".");
+        if (count % 8192 == 0) {
+            test_count++;
+            if(count % 65536 == 0) Serial.print(".");
+            if(test_count>254){
+                Serial.printf("\nFailed to connect to %s\n!",file.getString("ssid",""));
+                return false; //Time-out
+            }
+        }
         count++;
     }
+    file.end();
     Serial.println("\nConnected to network.");
+    return true;
 }
 
 
@@ -81,7 +91,7 @@ void send_pir_data(){
             } else {
                 Serial.println("Error sending request. Code: " + String(httpResponseCode));
             }
-            http.end(); // Close connection
+            http.end(); 
         } else {
             Serial.println("WiFi not connected");
         }
@@ -89,9 +99,46 @@ void send_pir_data(){
 
 }
 
+void send_heartbeat(void * pvParameters){
+    file.begin("device_config",false); //read device configuration for username
+    HTTPClient http;
+    http.begin(serverURI + "/api/status");  
+    while(1)
+    {
+        Serial.println("Sending Heartbeat: " + serverURI + "/api/device-status");
 
+        http.addHeader("Content-Type", "application/json");
+        
+        String jsonPayload = "{";
+        jsonPayload += "\"username\":\"" + file.getString("username","") + "\"";
+        jsonPayload += "}";
+        int httpResponseCode = http.POST(jsonPayload);
+
+        if (httpResponseCode > 0) {
+            String response = http.getString();
+            Serial.println("Server response: " + response);
+        } else {
+            Serial.println("Error sending request. Code: " + String(httpResponseCode));
+        }
+        http.end(); // Close connection
+        vTaskDelay(HEARTBEAT_SEND_DELAY);
+    } 
+
+       
+    }
+
+
+
+
+//TODO: Maybe also send test packet to backend as well for further confirmation
 boolean connect_backend(){
-    wifi_connect(); //Connect to WiFI assuming device is configured. (blocking, make non-blocking ) 
-    if(WiFi.status() != WL_CONNECTED) return false;
+
+    if(!wifi_connect()){
+        Serial.println("Failed to connect to backend.");
+        return false;
+    }
+    if(WiFi.status() != WL_CONNECTED) {
+        return false;
+    }
     return true;
 }
