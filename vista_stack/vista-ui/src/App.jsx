@@ -18,28 +18,62 @@ function App() {
     const [device_name, setDeviceName] = useState(null);
     const [detection, setDetection] = useState("No Motion Detected"); //PIR sensor
     const [displayIP, setDisplayIP] = useState(null);
+    const [device_mode, setDeviceMode] = useState(false); //true = eco, false = not eco
 
+    
 
-    //Function to send request to ESP32, 
-    const sendRequest = async (endpoint) => {
+    function DeviceModeButton({ device_mode, setDeviceMode }) {
+        const handleModeButton = async () => {
+            console.log("Changing Device Mode");
+            const newMode = !device_mode;
+            setDeviceMode(newMode); // ✅ Update state first
+    
+            try {
+                console.log("Sending Device Mode to ESP32...");
+                await sendRequest("/api/device/mode", "POST", { mode: newMode ? "eco" : "not_eco" });
+                console.log("Sent Mode:", newMode);
+            } catch (error) {
+                console.error("Error sending device mode:", error);
+            }
+        };
+    
+        return (
+            <div>
+                <h2>{device_mode ? "Eco Mode" : "Not Eco Mode"}</h2>
+                <button onClick={handleModeButton}>Change Device Mode</button>
+            </div>
+        );
+    }
+    
+    const sendRequest = async (endpoint, method = "GET", body = null) => {
         if (!userIP) return;
     
         try {
-            // ✅ Try direct request to ESP32 first
-            const directResponse = await fetch(`http://${userIP}${endpoint}`);
+            
+            const options = {
+                method: method.toUpperCase(), 
+                headers: { "Content-Type": "application/json" },
+            };
+    
+            if (body) {
+                options.body = JSON.stringify(body); // Add body for POST requests
+            }
+    
+
+            const directResponse = await fetch(`http://${userIP}${endpoint}`, options); //try ESP32 furst
             if (!directResponse.ok) {
                 throw new Error("ESP32 request failed");
             }
             
             console.log("Frontend Connection Success");
-            setBackendConnection(false);
+            if (backend_connect) setBackendConnection(false);
             return await directResponse.json();
         } catch (error) {
             console.log("Direct request failed, falling back to backend relay:", error);
     
             // ✅ Update the IP Display to "Backend" immediately
 
-            setBackendConnection(true);
+             if(!backend_connect) setBackendConnection(true);
     
             // ✅ Fetch from backend relay
             const backendResponse = await fetch(`${backendURL}/api/relay`, {
@@ -91,37 +125,40 @@ function App() {
         );
     }
 
-    function User_Interface({ userIP }) {
-
+    function User_Interface({ userIP, device_mode, setDeviceMode }) {
         useEffect(() => {
-            
             if (backend_connect) {
                 setDisplayIP("Backend");
             } else {
                 setDisplayIP(userIP);
             }
-        }, [backend_connect, userIP, vista_connect]); // ✅ Ensure this runs when state changes
-
+        }, [backend_connect, userIP, vista_connect]);
+    
         return (
             <div>
                 <h1>Welcome {device_name}!</h1>
                 {vista_connect ? (
-                    <h1>Connected at {displayIP}</h1> // 
+                    <h1>Connected at {displayIP}</h1>  
                 ) : (
                     <h1>Connecting...</h1>
                 )}
                 <div>
                     <PIR_sensor_detection userIP={userIP} />
+                    <DeviceModeButton device_mode={device_mode} setDeviceMode={setDeviceMode} />
                 </div>
             </div>
         );
     }
+    
+
+    
     useEffect(() => {
         fetch(`${backendURL}`)
             .then(response => response.json())
             .then(data => setMessage(data.message))
             .catch(error => console.error("Error:", error));
     }, []);
+
 
 
         useEffect(() => {
@@ -160,57 +197,54 @@ function App() {
 
     
     useEffect(() => {
-        if (!login_success) {
-            console.log("Login Unsuccessful");
-            return;
-        }
-        if (!username) return; // ✅ Ensure username exists before making requests
+        if (!login_success || !username) return;
+        
+        let isMounted = true;
     
         const fetchActivity = async () => {
+            if (!isMounted) return;
             console.log("Checking device activity...");
+    
             try {
                 const response = await fetch(`${backendURL}/api/device-status/${username}`);
     
-                if (!response.ok) {
-                    throw new Error("Failed to fetch device status");
-                }
+                if (!response.ok) throw new Error("Failed to fetch device status");
     
                 const data = await response.json();
                 console.log(`Device Status: ${data.status}, Last Seen: ${data.last_seen}`);
     
-                // ✅ Update frontend state based on device status
-                if (data.status === "online") {
+                if (data.status === "online" && isMounted) {
                     setVistaConnection(true);
                 } else {
                     setVistaConnection(false);
                 }
             } catch (error) {
                 console.error("Error fetching device activity:", error);
-                setVistaConnection(false); // Assume offline if request fails
+                if (isMounted) setVistaConnection(false);
             }
         };
     
-        // ✅ Fetch immediately when the user logs in
         fetchActivity();
+        const interval = setInterval(fetchActivity, 60000); // ✅ Fetch every 60 seconds
     
-        // ✅ Set interval to fetch every 30 seconds (30 seconds)
-        const interval = setInterval(fetchActivity, 30000);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, [login_success]);
     
-        // ✅ Cleanup function to clear interval on unmount
-        return () => clearInterval(interval);
-    }, [username, login_success]); // ✅ Runs when `username` or `login_success` changes
         
 
 
     useEffect(() => {
-        if(!login_success) {
-            console.log("Login Unsuccessful")   
-            return;
-        }
-        if (!username) return; // ✅ Ensure username exists before making requests
+        if (!login_success || !username) return;
+        
+        let isMounted = true;
     
         const fetchIP = async () => {
-            console.log("Retrieving IP");
+            if (!isMounted) return;
+            console.log("Fetching IP...");
+    
             try {
                 const response = await fetch(`${backendURL}/api/ip`, {
                     method: "POST",
@@ -218,28 +252,27 @@ function App() {
                     body: JSON.stringify({ username }),
                 });
     
-                if (!response.ok) {
-                    throw new Error("Failed to fetch IP from backend");
-                }
+                if (!response.ok) throw new Error("Failed to fetch IP from backend");
     
-                const data = await response.json(); // ✅ Expecting { ip: "192.168.1.100" }
-                if (data.ip) {
-                    setUserIP(data.ip); // ✅ Update state with new IP
+                const data = await response.json();
+                if (data.ip && isMounted) {
+                    setUserIP(data.ip);
                     console.log(`Fetched IP: ${data.ip}`);
-                } else {
-                    console.warn("No IP received in response:", data);
                 }
             } catch (error) {
                 console.error("Error fetching IP:", error);
             }
         };
     
-        // ✅ Fetch immediately, then repeat every 10 seconds
         fetchIP();
-        const interval = setInterval(fetchIP, 10000); // ✅ Run every 10 seconds
+        const interval = setInterval(fetchIP, 30000); // ✅ Fetch every 30 seconds instead of 10
     
-        return () => clearInterval(interval); // ✅ Cleanup interval on unmount
-    }, [username]); // ✅ Runs when `username` changes
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, [login_success]);
+    
 
     return (
         <div>
@@ -253,7 +286,7 @@ function App() {
             <p>{message}</p>
             </div>}
             {
-                login_attempt && <User_Interface userIP={userIP} /> //conditionally render user interface for all VISTA controls
+                login_attempt && <User_Interface userIP={userIP} device_mode={device_mode} setDeviceMode={setDeviceMode} /> //conditionally render user interface for all VISTA controls
             }
         </div>
     );

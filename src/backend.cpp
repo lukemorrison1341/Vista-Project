@@ -21,7 +21,7 @@ void send_ip(void * pvParameters) {
 
             if (httpResponseCode > 0) {
                 String response = http.getString();
-                Serial.println("Server response: " + response);
+                Serial.println("Server response(/api/device-config): " + response);
             } else {
                 Serial.println("Error sending request. Code: " + String(httpResponseCode));
             }
@@ -84,7 +84,7 @@ void send_pir_data(){
 
             if (httpResponseCode > 0) {
                 String response = http.getString();
-                Serial.println("Server response: " + response);
+                Serial.println("Server response(/api/data/pir): " + response);
             } else {
                 Serial.println("Error sending request. Code: " + String(httpResponseCode));
             }
@@ -113,7 +113,7 @@ void send_heartbeat(void * pvParameters){
 
         if (httpResponseCode > 0) {
             String response = http.getString();
-            Serial.println("Server response: " + response);
+            Serial.println("Server response(/api/device-status): " + response);
         } else {
             Serial.println("Error sending request. Code: " + String(httpResponseCode));
         }

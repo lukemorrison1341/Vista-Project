@@ -39,6 +39,7 @@ db.serialize(() =>{
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             pir INTEGER CHECK (pir IN (0,1)) DEFAULT NULL, -- NULL until updated
+            mode INTEGER CHECK (pir IN (0,1)) DEFAULT NULL, -- NULL until updated
             temp REAL DEFAULT NULL, -- NULL until updated
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
