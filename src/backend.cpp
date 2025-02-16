@@ -36,11 +36,10 @@ void send_ip(void * pvParameters) {
     }
 }
 
-boolean wifi_connect(){ //TODO: Add time-out so doesn't try to connect to WiFi endlessly
+boolean wifi_connect(){ 
     file.begin("device_config",false);
     WiFi.mode(WIFI_STA);
     WiFi.begin(file.getString("ssid",""),file.getString("password",""));
-    Serial.printf("Connecting to %s",file.getString("ssid",""));
     
     static uint32_t count =0; 
     static uint16_t test_count=0;
@@ -49,14 +48,12 @@ boolean wifi_connect(){ //TODO: Add time-out so doesn't try to connect to WiFi e
             test_count++;
             if(count % 65536 == 0) Serial.print(".");
             if(test_count>254){
-                Serial.printf("\nFailed to connect to %s\n!",file.getString("ssid",""));
                 return false; //Time-out
             }
         }
         count++;
     }
     file.end();
-    Serial.println("\nConnected to network.");
     return true;
 }
 
@@ -134,11 +131,23 @@ void send_heartbeat(void * pvParameters){
 boolean connect_backend(){
 
     if(!wifi_connect()){
-        Serial.println("Failed to connect to backend.");
         return false;
     }
+
     if(WiFi.status() != WL_CONNECTED) {
         return false;
     }
-    return true;
+    //Test packet
+    HTTPClient http;
+    http.begin(serverURI + "/api/test");  
+
+    int httpResponseCode = http.GET();
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        http.end();
+        return true;
+    } else {
+        http.end();
+        return false;   
+    }
 }

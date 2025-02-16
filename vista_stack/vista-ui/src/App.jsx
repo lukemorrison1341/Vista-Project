@@ -85,7 +85,7 @@ function App() {
                 {vista_connect ? (
                     <h2>PIR Sensor Status: {detection}</h2>
                 ) : (
-                    <h2>Failed to connect to VISTA device.</h2>
+                    <h2></h2>
                 )}
             </div>
         );
@@ -210,7 +210,7 @@ function App() {
         if (!username) return; // ✅ Ensure username exists before making requests
     
         const fetchIP = async () => {
-            console.log("Sending IP");
+            console.log("Retrieving IP");
             try {
                 const response = await fetch(`${backendURL}/api/ip`, {
                     method: "POST",

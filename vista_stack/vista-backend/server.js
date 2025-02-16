@@ -160,6 +160,12 @@ app.post("/api/data/pir", (req, res) => {
     })
 
 });
+//Simple API endpoint test to check that the backend is alive
+app.get("/api/test", (req, res) => {
+    console.log("Backened checked to see if it is online.(/api/test)");
+    return res.status(200).json({status: "online"});
+
+});
 
 app.post("/api/user-login", (req, res) => {
     const { username, password } = req.body;
@@ -189,7 +195,7 @@ app.post("/api/user-login", (req, res) => {
         }
     });
 });
-
+//Get heartbeat status from user
 app.get("/api/device-status/:username", (req, res) => {
     const { username } = req.params;
     console.log(`Checking status for username: "${username}"`); // Debugging

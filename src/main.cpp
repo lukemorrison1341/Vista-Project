@@ -16,19 +16,27 @@ void setup() {
     xTaskCreate(handle_server, "Device Configuration Task", 8192, NULL, 1, NULL);
   }
   else{
-    digitalWrite(LED_PIN,HIGH);
-    print_device_config();
     
-    if(!connect_backend()){
+    print_device_config();
+    Serial.println("Attempting backend connection");
+    while(!connect_backend()){
         digitalWrite(LED_PIN,LOW);
         if(WiFi.status() != WL_CONNECTED){
-        Serial.println("Restarting Configuration for Valid WiFi network. Reset the device.");
-        clear_configuration();
-      }
+            Serial.println("Restarting Configuration for Valid WiFi network. Reset the device.");
+            clear_configuration();
+        }
         
+        else {  
+       
+            Serial.print(".");
+            delay(5000);
+        }
+
     }
-    
-    else{ //Startup Sequences
+        
+  }
+      digitalWrite(LED_PIN,HIGH);
+      //Startup Sequences
       config_sensors();
       xTaskCreate(send_ip, "Send IP to Backend", 16384, NULL, 1, &ip_send_task); //Sends IP to backend periodically
       xTaskCreate(read_sensors, "Sensor Read Task", 8192, NULL, 1, &sensor_read_task); //Read sensors periodically
@@ -38,10 +46,10 @@ void setup() {
 
 
       xTaskCreate(send_heartbeat, "Send Heartbeat to Backend",16384,NULL,1,&heartbeat_task);
-    }
+    
   }
 
-}
+
 
 void handle_server(void * pvParameters){ //FreeRTOS task
   while(1){
