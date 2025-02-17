@@ -19,7 +19,8 @@ function App() {
     const [detection, setDetection] = useState("No Motion Detected"); //PIR sensor
     const [displayIP, setDisplayIP] = useState(null);
     const [device_mode, setDeviceMode] = useState(false); //true = eco, false = not eco
-
+    const [minTemp, setMinTemp] = useState(68);
+    const [maxTemp, setMaxTemp] = useState(75);
     
 
     function DeviceModeButton({ device_mode, setDeviceMode }) {
@@ -38,12 +39,52 @@ function App() {
         };
     
         return (
-            <div>
-                <h2>{device_mode ? "Eco Mode" : "Not Eco Mode"}</h2>
-                <button onClick={handleModeButton}>Change Device Mode</button>
+           
+                <div>
+                    <h2>{device_mode ? "Eco Mode" : "Not Eco Mode"}</h2>
+                    <button onClick={handleModeButton}>Change Device Mode</button>
+                </div>
+        );
+    }
+
+    function TemperatureControl({ minTemp, setMinTemp, maxTemp, setMaxTemp }) {
+        const handleMinTempChange = (delta) => {
+            setMinTemp((prevMinTemp) => {
+                const newMinTemp = prevMinTemp + delta;
+                return newMinTemp >= 65 && newMinTemp < maxTemp ? newMinTemp : prevMinTemp;
+            });
+        };
+    
+        const handleMaxTempChange = (delta) => {
+            setMaxTemp((prevMaxTemp) => {
+                const newMaxTemp = prevMaxTemp + delta;
+                return newMaxTemp > minTemp && newMaxTemp <= 75 ? newMaxTemp : prevMaxTemp;
+            });
+        };
+    
+        return (
+            <div style={{ border: "2px solid black", padding: "10px", width: "250px", textAlign: "center" }}>
+                <h3>Temperature Settings</h3>
+    
+                <div style={{ marginBottom: "10px" }}>
+                    <h4>Min Temperature</h4>
+                    <button onClick={() => handleMinTempChange(-1)}>▼</button>
+                    <span style={{ margin: "0 10px", fontSize: "18px" }}>{minTemp}°F</span>
+                    <button onClick={() => handleMinTempChange(1)}>▲</button>
+                </div>
+    
+                <div>
+                    <h4>Max Temperature</h4>
+                    <button onClick={() => handleMaxTempChange(-1)}>▼</button>
+                    <span style={{ margin: "0 10px", fontSize: "18px" }}>{maxTemp}°F</span>
+                    <button onClick={() => handleMaxTempChange(1)}>▲</button>
+                </div>
             </div>
         );
     }
+    
+    
+
     
     const sendRequest = async (endpoint, method = "GET", body = null) => {
         if (!userIP) return;
@@ -125,7 +166,7 @@ function App() {
         );
     }
 
-    function User_Interface({ userIP, device_mode, setDeviceMode }) {
+    function User_Interface({ userIP, device_mode, setDeviceMode, minTemp, setMinTemp, maxTemp, setMaxTemp }) {
         useEffect(() => {
             if (backend_connect) {
                 setDisplayIP("Backend");
@@ -138,14 +179,17 @@ function App() {
             <div>
                 <h1>Welcome {device_name}!</h1>
                 {vista_connect ? (
-                    <h1>Connected at {displayIP}</h1>  
+                    <div>
+                        <h1>Connected at {displayIP}</h1>
+                        <PIR_sensor_detection userIP={userIP} />
+                        <DeviceModeButton device_mode={device_mode} setDeviceMode={setDeviceMode} /> 
+                        <TemperatureControl minTemp={minTemp}  maxTemp={maxTemp} setMinTemp={setMinTemp} setMaxTemp={setMaxTemp}/>
+                        <h2>User Interface</h2> 
+                    </div>
                 ) : (
                     <h1>Connecting...</h1>
                 )}
-                <div>
-                    <PIR_sensor_detection userIP={userIP} />
-                    <DeviceModeButton device_mode={device_mode} setDeviceMode={setDeviceMode} />
-                </div>
+                
             </div>
         );
     }
@@ -225,7 +269,7 @@ function App() {
         };
     
         fetchActivity();
-        const interval = setInterval(fetchActivity, 60000); // ✅ Fetch every 60 seconds
+        const interval = setInterval(fetchActivity, 30000); // ✅ Fetch every 60 seconds
     
         return () => {
             isMounted = false;
@@ -286,7 +330,7 @@ function App() {
             <p>{message}</p>
             </div>}
             {
-                login_attempt && <User_Interface userIP={userIP} device_mode={device_mode} setDeviceMode={setDeviceMode} /> //conditionally render user interface for all VISTA controls
+                login_attempt && <User_Interface userIP={userIP} device_mode={device_mode} setDeviceMode={setDeviceMode} maxTemp={maxTemp} minTemp={minTemp} setMaxTemp={setMaxTemp} setMinTemp={setMinTemp} /> //conditionally render user interface for all VISTA controls
             }
         </div>
     );
